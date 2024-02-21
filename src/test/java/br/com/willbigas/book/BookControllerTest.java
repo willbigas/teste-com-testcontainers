@@ -1,95 +1,96 @@
 package br.com.willbigas.book;
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class BookControllerOldWayTest {
+@Testcontainers
+public class BookControllerTest {
 
 	@LocalServerPort
-    private Integer port;
+	private Integer port;
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+	@Autowired
+	private TestRestTemplate restTemplate;
 
-    @Autowired
-    private BookRepository bookRepository;
+	@Autowired
+	private BookRepository bookRepository;
 
-    // start container
-    @BeforeAll
-    static void beforeAll() {
-        postgres.start();
-    }
 
-    // stop container
-    @AfterAll
-    static void afterAll() {
-        postgres.stop();
-    }
+	// no need this, the @Testcontainers and @Container will auto start and stop the container.
+  	/*@BeforeAll
+  	static void beforeAll() {
+      postgres.start();
+  	}
 
-    /**
-     * postgres:15-alpine
-     * PostgreSQL version 15 using the lightweight Alpine Linux as the base image
-     */
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(
-            "postgres:15-alpine"
-    );
+  	@AfterAll
+  	static void afterAll() {
+      postgres.stop();
+  	}*/
 
-    @DynamicPropertySource
-    static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-    }
 
-    @Test
-    public void testBookEndpoints() {
+	/**
+	 * postgres:15-alpine
+	 * PostgreSQL version 15 using the lightweight Alpine Linux as the base image
+	 */
+	@Container
+	@ServiceConnection
+	static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine");
 
-        // Create a new book
-        Book book = new Book();
-        book.setName("Is Java Dead?");
-        book.setIsbn("111-111");
 
-        ResponseEntity<Book> createResponse =
-                restTemplate.postForEntity("/books", book, Book.class);
-        assertEquals(HttpStatus.OK, createResponse.getStatusCode());
-        Book savedBook = createResponse.getBody();
+	// With Spring Boot 3.1 and @ServiceConnection, no need this @DynamicPropertySource
+  /*
+  @DynamicPropertySource
+  static void configureProperties(DynamicPropertyRegistry registry) {
+      registry.add("spring.datasource.url", postgres::getJdbcUrl);
+      registry.add("spring.datasource.username", postgres::getUsername);
+      registry.add("spring.datasource.password", postgres::getPassword);
+  }*/
 
-        assert savedBook != null;
 
-        // Retrieve
-        ResponseEntity<Book> getResponse =
-                restTemplate.getForEntity("/books/" + savedBook.getId(), Book.class);
-        assertEquals(HttpStatus.OK, getResponse.getStatusCode());
+	@Test
+	public void testBookEndpoints() {
 
-        Book bookFromGet = getResponse.getBody();
+		// Create a new book
+		Book book = new Book();
+		book.setName("Is Java Dead?");
+		book.setIsbn("111-111");
 
-        assert bookFromGet != null;
+		ResponseEntity<Book> createResponse = restTemplate.postForEntity("/books", book, Book.class);
+		assertEquals(HttpStatus.OK, createResponse.getStatusCode());
+		Book savedBook = createResponse.getBody();
 
-        assertEquals("Is Java Dead?", bookFromGet.getName());
-        assertEquals("111-111", bookFromGet.getIsbn());
+		assert savedBook != null;
 
-        // Retrieve All
-        ResponseEntity<Book[]> getAllResponse =
-                restTemplate.getForEntity("/books", Book[].class);
-        assertEquals(HttpStatus.OK, getAllResponse.getStatusCode());
+		// Retrieve
+		ResponseEntity<Book> getResponse = restTemplate.getForEntity("/books/" + savedBook.getId(), Book.class);
+		assertEquals(HttpStatus.OK, getResponse.getStatusCode());
 
-        Book[] bookFromGetAll = getAllResponse.getBody();
-        assert bookFromGetAll != null;
+		Book bookFromGet = getResponse.getBody();
 
-        assertEquals(1, bookFromGetAll.length);
-    }
+		assert bookFromGet != null;
+
+		assertEquals("Is Java Dead?", bookFromGet.getName());
+		assertEquals("111-111", bookFromGet.getIsbn());
+
+		// Retrieve All
+		ResponseEntity<Book[]> getAllResponse = restTemplate.getForEntity("/books", Book[].class);
+		assertEquals(HttpStatus.OK, getAllResponse.getStatusCode());
+
+		Book[] bookFromGetAll = getAllResponse.getBody();
+		assert bookFromGetAll != null;
+
+		assertEquals(1, bookFromGetAll.length);
+	}
 }
